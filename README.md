@@ -22,23 +22,24 @@ npm run build
 npm run preview
 ```
 
-## GitHub Pages (Automatic)
+## GitHub Pages (GitHub Actions)
 
-This repo includes `.github/workflows/deploy-gh-pages.yml`, which:
+This repo includes `.github/workflows/deploy-pages.yml`, which:
 
-- builds on every push to `main`
-- deploys `dist/` to GitHub Pages automatically
-
-No ongoing terminal maintenance is needed after pushing changes.
+- runs on every push to **`main`** or **`master`**
+- runs `npm ci` and `npm run build`
+- publishes the **`dist/`** output to GitHub Pages (you do not pick `dist` in the Pages folder dropdown)
 
 ### One-time GitHub setup
 
-In your GitHub repo settings:
+1. Repo → **Settings** → **Pages**
+2. Under **Build and deployment** → **Source**, choose **GitHub Actions** (not “Deploy from a branch”)
+3. Push this workflow to your default branch; open the **Actions** tab and confirm the workflow succeeds
+4. Your site URL is usually `https://<username>.github.io/<repository>/`
 
-1. Go to **Settings > Pages**
-2. Set **Source** to **GitHub Actions**
+The build sets Vite `base` to `/<repository>/` automatically in CI so assets load under that path.
 
-After that, each push to `main` redeploys the site.
+Optional: add repository secrets **`VITE_GEMINI_API_KEY`** and **`VITE_GEMINI_MODEL`** so the Study Planner can call Gemini from the deployed site (key is still visible in client JS).
 
 ## Gemini (Study Planner)
 
