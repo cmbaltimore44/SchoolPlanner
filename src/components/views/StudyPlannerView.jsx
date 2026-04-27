@@ -11,7 +11,7 @@ function parseDays(input) {
   return match ? Number(match[1]) : 5
 }
 
-/** Offline fallback when no API key is configured (same shape as Gemini output). */
+/** Offline fallback when no API key is configured*/
 function mockStudyPlan(assignmentInput) {
   const days = parseDays(assignmentInput)
   const dayRows = Array.from({ length: days }, (_, index) => ({
