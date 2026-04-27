@@ -1,21 +1,34 @@
 import { useEffect, useState } from 'react'
 
-export function useLocalStorage(key, initialValue, isValid = () => true) {
-  const [storedValue, setStoredValue] = useState(() => {
-    try {
-      const value = window.localStorage.getItem(key)
-      if (!value) return initialValue
-      const parsed = JSON.parse(value)
-      return isValid(parsed) ? parsed : initialValue
-    } catch {
-      return initialValue
-    }
-  })
+/**
+ * Persisted state. `parse` runs only when loading from localStorage to repair legacy shapes;
+ * in-memory updates are stored as-is (avoids accidental resets from reference churn).
+ */
+export function useLocalStorage(key, defaultValue, parse) {
+  const [state, setState] = useState(() => readKey(key, defaultValue, parse))
 
   useEffect(() => {
-    const nextValue = isValid(storedValue) ? storedValue : initialValue
-    window.localStorage.setItem(key, JSON.stringify(nextValue))
-  }, [initialValue, isValid, key, storedValue])
+    try {
+      window.localStorage.setItem(key, JSON.stringify(state))
+    } catch {
+      // ignore
+    }
+  }, [key, state])
 
-  return [storedValue, setStoredValue]
+  return [state, setState]
+}
+
+function readKey(key, defaultValue, parse) {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (raw == null) return defaultValue
+    const parsed = JSON.parse(raw)
+    if (parse) {
+      const out = parse(parsed)
+      return out == null ? defaultValue : out
+    }
+    return parsed
+  } catch {
+    return defaultValue
+  }
 }

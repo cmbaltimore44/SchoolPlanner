@@ -1,8 +1,8 @@
 export const defaultCourses = [
-  { id: 'course-1', name: 'Modern History', code: 'HIST 101', schedule: 'Mon/Wed 9:00 AM' },
-  { id: 'course-2', name: 'Calculus II', code: 'MATH 202', schedule: 'Tue/Thu 10:30 AM' },
-  { id: 'course-3', name: 'Chemistry Lab', code: 'CHEM LAB', schedule: 'Tue 2:00 PM' },
-  { id: 'course-4', name: 'Digital Design', code: 'ART 130', schedule: 'Fri 11:00 AM' },
+  { id: 'course-1', name: 'Modern History', code: 'HIST 101', schedule: 'Mon/Wed 9:00 AM', repeating: true },
+  { id: 'course-2', name: 'Calculus II', code: 'MATH 202', schedule: 'Tue/Thu 10:30 AM', repeating: true },
+  { id: 'course-3', name: 'Chemistry Lab', code: 'CHEM LAB', schedule: 'Tue 2:00 PM', repeating: true },
+  { id: 'course-4', name: 'Digital Design', code: 'ART 130', schedule: 'Fri 11:00 AM', repeating: true },
 ]
 
 export const defaultTasks = [

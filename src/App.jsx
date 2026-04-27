@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Header from './components/Header'
+import SearchResults from './components/SearchResults'
 import Sidebar from './components/Sidebar'
 import CalendarView from './components/views/CalendarView'
 import CoursesView from './components/views/CoursesView'
@@ -8,6 +9,7 @@ import StudyPlannerView from './components/views/StudyPlannerView'
 import TaskBoardView from './components/views/TaskBoardView'
 import { defaultCourses, defaultScheduleEvents, defaultTasks } from './data/defaultData'
 import { useLocalStorage } from './hooks/useLocalStorage'
+import { parseCoursesList, parseScheduleList, parseTasksList } from './utils/storageNormalize'
 
 const VIEWS = {
   dashboard: 'dashboard',
@@ -28,26 +30,28 @@ function App() {
   const [activeView, setActiveView] = useState(VIEWS.dashboard)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [tasks, setTasks] = useLocalStorage('schoolplanner_tasks', defaultTasks, Array.isArray)
-  const [courses, setCourses] = useLocalStorage('schoolplanner_courses', defaultCourses, Array.isArray)
+  const [focusCourseId, setFocusCourseId] = useState(null)
+  const [calendarJumpDate, setCalendarJumpDate] = useState(null)
+
+  const clearCourseFocus = useCallback(() => setFocusCourseId(null), [])
+  const clearCalendarJump = useCallback(() => setCalendarJumpDate(null), [])
+
+  const [tasks, setTasks] = useLocalStorage('schoolplanner_tasks', defaultTasks, parseTasksList)
+  const [courses, setCourses] = useLocalStorage('schoolplanner_courses', defaultCourses, parseCoursesList)
   const [scheduleEvents, setScheduleEvents] = useLocalStorage(
     'schoolplanner_schedule',
     defaultScheduleEvents,
-    Array.isArray,
+    parseScheduleList,
   )
 
+  // Upcoming list is not filtered by search (search has its own results panel; filtering hid tasks before).
   const upcomingTasks = useMemo(
     () =>
       [...tasks]
         .filter((task) => task.status !== 'Completed')
-        .filter((task) => {
-          if (!searchQuery.trim()) return true
-          const courseName = courses.find((course) => course.id === task.courseId)?.name || ''
-          return `${task.title} ${courseName}`.toLowerCase().includes(searchQuery.toLowerCase())
-        })
         .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
         .slice(0, 5),
-    [courses, searchQuery, tasks],
+    [tasks],
   )
 
   const userName = 'Cooper'
@@ -64,13 +68,31 @@ function App() {
           onQuickAdd={() => setActiveView(VIEWS.tasks)}
         />
 
-        <main className="flex-1 rounded-[2rem] bg-[#f2f4f6] p-4 sm:p-6">
+        <main className="min-w-0 flex-1 rounded-[2rem] bg-[#f2f4f6] p-4 sm:p-6">
           <Header
             greeting={greeting}
             activeView={activeView}
             onMenuClick={() => setSidebarOpen((current) => !current)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+          />
+
+          <SearchResults
+            query={searchQuery}
+            tasks={tasks}
+            courses={courses}
+            scheduleEvents={scheduleEvents}
+            onSelectTask={() => {
+              setActiveView(VIEWS.tasks)
+            }}
+            onSelectCourse={(id) => {
+              setActiveView(VIEWS.courses)
+              setFocusCourseId(id)
+            }}
+            onSelectCalendar={(dateKey) => {
+              setActiveView(VIEWS.calendar)
+              setCalendarJumpDate(dateKey)
+            }}
           />
 
           <div className="mt-5">
@@ -85,15 +107,16 @@ function App() {
               />
             )}
             {activeView === VIEWS.calendar && (
-              <CalendarView tasks={tasks} scheduleEvents={scheduleEvents} />
+              <CalendarView
+                tasks={tasks}
+                scheduleEvents={scheduleEvents}
+                courses={courses}
+                jumpToDateKey={calendarJumpDate}
+                onJumpHandled={clearCalendarJump}
+              />
             )}
             {activeView === VIEWS.tasks && (
-              <TaskBoardView
-                tasks={tasks}
-                setTasks={setTasks}
-                courses={courses}
-                searchQuery={searchQuery}
-              />
+              <TaskBoardView tasks={tasks} setTasks={setTasks} courses={courses} />
             )}
             {activeView === VIEWS.courses && (
               <CoursesView
@@ -101,7 +124,8 @@ function App() {
                 tasks={tasks}
                 setCourses={setCourses}
                 setScheduleEvents={setScheduleEvents}
-                searchQuery={searchQuery}
+                focusCourseId={focusCourseId}
+                onFocusCourseHandled={clearCourseFocus}
               />
             )}
             {activeView === VIEWS.study && (

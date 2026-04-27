@@ -25,7 +25,7 @@ function Sidebar({ isOpen, activeView, setActiveView, onToggle, onQuickAdd }) {
     >
       <div className="mb-7 flex items-center justify-between px-2">
         <div className={isOpen ? 'block' : 'hidden'}>
-          <p className="font-semibold text-[#24389c]">The Atelier</p>
+          <p className="font-semibold text-[#24389c]">School Study Planner</p>
           <p className="text-xs text-[#6b7280]">Academic Workspace</p>
         </div>
         <button

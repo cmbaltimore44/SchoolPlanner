@@ -1,15 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getEventsForDate, toDateStringLocal } from '../../utils/courseSchedule'
 
 const modes = ['Month', 'Week', 'Day']
 
-function asDateString(date) {
-  return date.toISOString().split('T')[0]
-}
-
-function CalendarView({ tasks, scheduleEvents }) {
+function CalendarView({ tasks, scheduleEvents, courses, jumpToDateKey, onJumpHandled }) {
   const [mode, setMode] = useState('Week')
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState(asDateString(new Date()))
+  const [selectedDate, setSelectedDate] = useState(() => toDateStringLocal(new Date()))
+
+  useEffect(() => {
+    if (!jumpToDateKey) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedDate(jumpToDateKey)
+    setCurrentDate(new Date(jumpToDateKey + 'T12:00:00'))
+    onJumpHandled?.()
+  }, [jumpToDateKey, onJumpHandled])
 
   const visibleDates = useMemo(() => {
     if (mode === 'Day') return [new Date(currentDate)]
@@ -36,14 +41,14 @@ function CalendarView({ tasks, scheduleEvents }) {
   }, [currentDate, mode])
 
   const selectedItems = useMemo(() => {
-    const classes = scheduleEvents
-      .filter((event) => event.date === selectedDate)
-      .map((event) => ({ ...event, eventType: 'Class' }))
-    const assignments = tasks
-      .filter((task) => task.dueDate === selectedDate)
-      .map((task) => ({ id: task.id, title: task.title, eventType: 'Assignment', time: 'Due' }))
-    return [...classes, ...assignments]
-  }, [selectedDate, scheduleEvents, tasks])
+    const tasksForDay = tasks.filter((task) => task.dueDate === selectedDate)
+    const { classes, scheduleAssignments, taskAssignments } = getEventsForDate(selectedDate, {
+      scheduleEvents,
+      courses,
+      tasksForDate: tasksForDay,
+    })
+    return { classes, scheduleAssignments, taskAssignments }
+  }, [selectedDate, scheduleEvents, tasks, courses])
 
   const movePeriod = (direction) => {
     setCurrentDate((current) => {
@@ -91,9 +96,11 @@ function CalendarView({ tasks, scheduleEvents }) {
         </div>
         <div className={`grid gap-2 ${mode === 'Day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
           {visibleDates.map((date) => {
-            const dateKey = asDateString(date)
-            const classCount = scheduleEvents.filter((event) => event.date === dateKey).length
-            const taskCount = tasks.filter((task) => task.dueDate === dateKey).length
+            const dateKey = toDateStringLocal(date)
+            const tasksForDay = tasks.filter((t) => t.dueDate === dateKey)
+            const { classes } = getEventsForDate(dateKey, { scheduleEvents, courses, tasksForDay: [] })
+            const classCount = classes.length
+            const taskCount = tasksForDay.length
             return (
               <button
                 key={dateKey}
@@ -124,22 +131,38 @@ function CalendarView({ tasks, scheduleEvents }) {
 
       <aside className="rounded-3xl bg-white p-5">
         <h3 className="text-lg font-semibold">Selected Day</h3>
-        <p className="mt-1 text-sm text-[#6b7280]">{new Date(selectedDate).toDateString()}</p>
+        <p className="mt-1 text-sm text-[#6b7280]">{new Date(selectedDate + 'T12:00:00').toDateString()}</p>
         <div className="mt-4 space-y-2">
-          {selectedItems.length ? (
-            selectedItems.map((item) => (
-              <div key={item.id} className="rounded-2xl bg-[#f2f4f6] p-3">
-                <p className="font-medium">{item.title}</p>
-                <p className="text-xs text-[#6b7280]">
-                  {item.eventType} {item.time ? `• ${item.time}` : ''}
+          {(() => {
+            const rows = [
+              ...selectedItems.classes.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-[#f2f4f6] p-3">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-[#6b7280]">Class {item.time ? `• ${item.time}` : ''}</p>
+                </div>
+              )),
+              ...selectedItems.scheduleAssignments.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-[#f2f4f6] p-3">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-[#6b7280]">Scheduled · {item.time || ''}</p>
+                </div>
+              )),
+              ...selectedItems.taskAssignments.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-[#f2f4f6] p-3">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-[#6b7280]">Assignment due</p>
+                </div>
+              )),
+            ]
+            if (!rows.length) {
+              return (
+                <p className="rounded-2xl bg-[#f2f4f6] p-3 text-sm text-[#6b7280]">
+                  No classes or tasks for this day.
                 </p>
-              </div>
-            ))
-          ) : (
-            <p className="rounded-2xl bg-[#f2f4f6] p-3 text-sm text-[#6b7280]">
-              No classes or tasks for this day.
-            </p>
-          )}
+              )
+            }
+            return rows
+          })()}
         </div>
       </aside>
     </section>

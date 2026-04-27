@@ -12,23 +12,17 @@ function emptyForm() {
   }
 }
 
-function TaskBoardView({ tasks, setTasks, courses, searchQuery }) {
+function TaskBoardView({ tasks, setTasks, courses }) {
   const [draft, setDraft] = useState(emptyForm())
   const [editingId, setEditingId] = useState('')
 
   const groupedTasks = useMemo(
     () =>
       columns.reduce((acc, column) => {
-        acc[column] = tasks.filter((task) => {
-          if (task.status !== column) return false
-          if (!searchQuery.trim()) return true
-          const courseName = courses.find((course) => course.id === task.courseId)?.name || ''
-          const haystack = `${task.title} ${courseName}`.toLowerCase()
-          return haystack.includes(searchQuery.toLowerCase())
-        })
+        acc[column] = tasks.filter((task) => task.status === column)
         return acc
       }, {}),
-    [courses, searchQuery, tasks],
+    [tasks],
   )
 
   const onSubmit = (event) => {

@@ -1,6 +1,30 @@
+import { useMemo } from 'react'
+import { getEventsForDate, toDateStringLocal } from '../../utils/courseSchedule'
+
+function startOfWeekMonday(ref = new Date()) {
+  const d = new Date(ref)
+  const day = d.getDay()
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - ((day + 6) % 7))
+  monday.setHours(12, 0, 0, 0)
+  return monday
+}
+
 function DashboardView({ tasks, courses, scheduleEvents, upcomingTasks, onGoToCalendar, onGoToTasks }) {
   const completed = tasks.filter((task) => task.status === 'Completed').length
   const completionPct = tasks.length ? Math.round((completed / tasks.length) * 100) : 0
+
+  const workWeek = useMemo(() => {
+    const mon = startOfWeekMonday()
+    return [0, 1, 2, 3, 4].map((i) => {
+      const d = new Date(mon)
+      d.setDate(mon.getDate() + i)
+      const dateKey = toDateStringLocal(d)
+      const label = d.toLocaleDateString('en-US', { weekday: 'short' })
+      const { classes } = getEventsForDate(dateKey, { scheduleEvents, courses, tasksForDate: [] })
+      return { label, dateKey, classes }
+    })
+  }, [courses, scheduleEvents])
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
@@ -46,7 +70,7 @@ function DashboardView({ tasks, courses, scheduleEvents, upcomingTasks, onGoToCa
               </div>
             ))
           ) : (
-            <p className="rounded-2xl bg-[#f2f4f6] p-3 text-sm text-[#6b7280]">No matching tasks found.</p>
+            <p className="rounded-2xl bg-[#f2f4f6] p-3 text-sm text-[#6b7280]">No upcoming tasks.</p>
           )}
         </div>
       </article>
@@ -61,28 +85,25 @@ function DashboardView({ tasks, courses, scheduleEvents, upcomingTasks, onGoToCa
           Open Calendar
         </button>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => {
-            const events = scheduleEvents.filter((event) =>
-              new Date(event.date)
-                .toLocaleDateString('en-US', { weekday: 'short' })
-                .startsWith(day),
-            )
-
-            return (
-              <div key={day} className="rounded-2xl bg-[#f2f4f6] p-3">
-                <p className="mb-2 text-sm font-semibold text-[#24389c]">{day}</p>
-                {events.length ? (
-                  events.map((event) => (
-                    <p key={event.id} className="mb-1 rounded-xl bg-white px-2 py-1 text-xs">
-                      {event.time} {event.title}
-                    </p>
-                  ))
-                ) : (
-                  <p className="text-xs text-[#9ca3af]">No classes</p>
-                )}
-              </div>
-            )
-          })}
+          {workWeek.map(({ label, dateKey, classes }) => (
+            <div key={dateKey} className="rounded-2xl bg-[#f2f4f6] p-3">
+              <p className="mb-2 text-sm font-semibold text-[#24389c]">
+                {label}{' '}
+                <span className="text-xs font-normal text-[#9ca3af]">
+                  {dateKey.replace(/^\d{4}-/, '')}
+                </span>
+              </p>
+              {classes.length ? (
+                classes.map((event) => (
+                  <p key={event.id} className="mb-1 rounded-xl bg-white px-2 py-1 text-xs">
+                    {event.time} {event.title}
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs text-[#9ca3af]">No classes</p>
+              )}
+            </div>
+          ))}
         </div>
       </article>
     </section>

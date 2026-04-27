@@ -1,77 +1,46 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createOneOffCourseEvents } from '../../utils/courseSchedule'
 
-const weekdayMap = {
-  Sun: 0,
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-}
-
-function parseTimeTo24Hour(timeText) {
-  const match = timeText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
-  if (!match) return '09:00'
-  let hour = Number(match[1]) % 12
-  const minute = match[2]
-  const ampm = match[3].toUpperCase()
-  if (ampm === 'PM') hour += 12
-  return `${String(hour).padStart(2, '0')}:${minute}`
-}
-
-function nextDateForWeekday(targetWeekday) {
-  const current = new Date()
-  const today = current.getDay()
-  const delta = (targetWeekday - today + 7) % 7
-  current.setDate(current.getDate() + delta)
-  return current.toISOString().split('T')[0]
-}
-
-function createCourseEvents(course) {
-  const dayMatches = course.schedule.match(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/g) || []
-  const uniqueDays = [...new Set(dayMatches)]
-  const time = parseTimeTo24Hour(course.schedule)
-  return uniqueDays.map((day) => ({
-    id: `event-${crypto.randomUUID()}`,
-    type: 'class',
-    title: course.name,
-    date: nextDateForWeekday(weekdayMap[day]),
-    time,
-  }))
-}
-
-function CoursesView({ courses, tasks, setCourses, setScheduleEvents, searchQuery }) {
+function CoursesView({
+  courses,
+  tasks,
+  setCourses,
+  setScheduleEvents,
+  focusCourseId,
+  onFocusCourseHandled,
+}) {
   const [selectedCourseId, setSelectedCourseId] = useState(courses[0]?.id || '')
-  const [draft, setDraft] = useState({ name: '', code: '', schedule: '' })
+  const [draft, setDraft] = useState({ name: '', code: '', schedule: '', repeating: false })
 
-  const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return courses
-    return courses.filter((course) =>
-      `${course.name} ${course.code} ${course.schedule}`
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()),
-    )
-  }, [courses, searchQuery])
+  useEffect(() => {
+    if (!focusCourseId) return
+    if (!courses.some((c) => c.id === focusCourseId)) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- apply focus from parent (search)
+    setSelectedCourseId(focusCourseId)
+    onFocusCourseHandled?.()
+  }, [focusCourseId, courses, onFocusCourseHandled])
 
   const selectedTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        if (task.courseId !== selectedCourseId) return false
-        if (!searchQuery.trim()) return true
-        return task.title.toLowerCase().includes(searchQuery.toLowerCase())
-      }),
-    [searchQuery, selectedCourseId, tasks],
+    () => tasks.filter((task) => task.courseId === selectedCourseId),
+    [selectedCourseId, tasks],
   )
 
   const addCourse = (event) => {
     event.preventDefault()
     if (!draft.name || !draft.code || !draft.schedule) return
-    const newCourse = { id: `course-${crypto.randomUUID()}`, ...draft }
+    const newCourse = {
+      id: `course-${crypto.randomUUID()}`,
+      name: draft.name,
+      code: draft.code,
+      schedule: draft.schedule,
+      repeating: draft.repeating,
+    }
     setCourses((current) => [...current, newCourse])
-    setScheduleEvents((current) => [...current, ...createCourseEvents(newCourse)])
+    if (!newCourse.repeating) {
+      setScheduleEvents((current) => [...current, ...createOneOffCourseEvents(newCourse)])
+    }
     setSelectedCourseId(newCourse.id)
-    setDraft({ name: '', code: '', schedule: '' })
+    setDraft({ name: '', code: '', schedule: '', repeating: false })
   }
 
   return (
@@ -79,7 +48,7 @@ function CoursesView({ courses, tasks, setCourses, setScheduleEvents, searchQuer
       <article className="rounded-3xl bg-white p-5">
         <h2 className="mb-4 text-lg font-semibold">Course Cards</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {filteredCourses.map((course) => (
+          {courses.map((course) => (
             <button
               key={course.id}
               type="button"
@@ -91,6 +60,9 @@ function CoursesView({ courses, tasks, setCourses, setScheduleEvents, searchQuer
               <p className="text-sm text-[#24389c]">{course.code}</p>
               <h3 className="mt-1 font-semibold">{course.name}</h3>
               <p className="mt-2 text-sm text-[#6b7280]">{course.schedule}</p>
+              {course.repeating && (
+                <p className="mt-1 text-xs text-emerald-700">Repeats every week</p>
+              )}
             </button>
           ))}
         </div>
@@ -135,6 +107,20 @@ function CoursesView({ courses, tasks, setCourses, setScheduleEvents, searchQuer
             onChange={(event) => setDraft((current) => ({ ...current, schedule: event.target.value }))}
             className="w-full rounded-xl bg-[#f2f4f6] px-3 py-2 text-sm outline-none"
           />
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#f2f4f6] px-3 py-2 text-sm text-[#374151]">
+            <input
+              type="checkbox"
+              checked={draft.repeating}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, repeating: event.target.checked }))
+              }
+              className="h-4 w-4 rounded border-[#cbd5e1] text-[#24389c] focus:ring-[#24389c]"
+            />
+            <span>Repeating weekly</span>
+          </label>
+          <p className="text-xs text-[#6b7280]">
+            If not repeating, a one-time class is added on the next scheduled weekday.
+          </p>
           <button
             type="submit"
             className="w-full rounded-xl bg-gradient-to-br from-[#24389c] to-[#3f51b5] px-4 py-2 text-sm font-semibold text-white"
